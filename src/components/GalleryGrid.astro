@@ -1,0 +1,158 @@
+---
+import type { PhotoEntry } from '../lib/photos';
+import type { Category } from '../lib/photos';
+import PhotoCard from './PhotoCard.astro';
+import { CATEGORIES } from '../lib/categories';
+
+interface Props {
+  photos: PhotoEntry[];
+  initialCategory?: Category | 'all';
+}
+
+const { photos, initialCategory = 'all' } = Astro.props;
+---
+
+<section class="gallery-section" aria-label="Photo gallery">
+  <!-- Filter bar -->
+  <div class="filter-bar" role="group" aria-label="Filter by category">
+    <button
+      class="filter-btn"
+      data-filter="all"
+      aria-pressed={initialCategory === 'all' ? 'true' : 'false'}
+    >
+      All
+    </button>
+    {CATEGORIES.map(cat => (
+      <button
+        class="filter-btn"
+        data-filter={cat.value}
+        aria-pressed={initialCategory === cat.value ? 'true' : 'false'}
+      >
+        {cat.label}
+      </button>
+    ))}
+  </div>
+
+  <!-- Grid -->
+  <div class="gallery-grid" id="gallery-grid">
+    {photos.map(photo => (
+      <PhotoCard photo={photo} />
+    ))}
+  </div>
+
+  <!-- Empty state -->
+  <p class="empty-state" id="gallery-empty" aria-live="polite">
+    No photos in this category yet. Check back soon.
+  </p>
+</section>
+
+<script>
+  const grid = document.getElementById('gallery-grid') as HTMLElement;
+  const empty = document.getElementById('gallery-empty') as HTMLElement;
+  const buttons = document.querySelectorAll<HTMLButtonElement>('.filter-btn');
+  const cards = grid ? Array.from(grid.querySelectorAll<HTMLElement>('[data-category]')) : [];
+
+  // Read initial filter from URL param
+  const params = new URLSearchParams(window.location.search);
+  let active = params.get('category') ?? 'all';
+
+  function applyFilter(filter: string) {
+    active = filter;
+
+    // Update button states
+    buttons.forEach(btn => {
+      btn.setAttribute('aria-pressed', btn.dataset.filter === filter ? 'true' : 'false');
+    });
+
+    // Show/hide cards
+    let visible = 0;
+    cards.forEach(card => {
+      const match = filter === 'all' || card.dataset.category === filter;
+      card.hidden = !match;
+      if (match) visible++;
+    });
+
+    // Empty state
+    if (empty) empty.hidden = visible > 0;
+
+    // Update URL without reload
+    const url = new URL(window.location.href);
+    if (filter === 'all') url.searchParams.delete('category');
+    else url.searchParams.set('category', filter);
+    window.history.replaceState({}, '', url.toString());
+  }
+
+  // Init
+  applyFilter(active);
+
+  // Button clicks
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => applyFilter(btn.dataset.filter ?? 'all'));
+  });
+</script>
+
+<style>
+.gallery-section {
+  padding: 8rem 2.5rem 5rem;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.filter-bar {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 3rem;
+}
+
+.filter-btn {
+  padding: 0.45rem 1.1rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border: 1px solid rgba(245,240,232,0.18);
+  border-radius: 2px;
+  background: transparent;
+  color: rgba(245,240,232,0.55);
+  cursor: pointer;
+  transition: all 0.18s;
+}
+
+.filter-btn:hover,
+.filter-btn[aria-pressed="true"] {
+  border-color: var(--sunset);
+  color: var(--paper);
+  background: rgba(200,90,42,0.1);
+}
+
+.gallery-grid {
+  columns: 3;
+  column-gap: 1rem;
+  gap: 1rem;
+}
+
+.gallery-grid > :global(*) {
+  break-inside: avoid;
+  margin-bottom: 1rem;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 4rem 0;
+  color: rgba(245,240,232,0.35);
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+}
+
+.empty-state[hidden] { display: none; }
+
+@media (max-width: 900px) {
+  .gallery-grid { columns: 2; }
+}
+
+@media (max-width: 540px) {
+  .gallery-section { padding: 7rem 1.25rem 4rem; }
+  .gallery-grid { columns: 1; }
+}
+</style>

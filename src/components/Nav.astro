@@ -1,0 +1,87 @@
+---
+const links = [
+  { href: '/', label: 'Home' },
+  { href: '/gallery', label: 'Gallery' },
+  { href: '/about', label: 'About' },
+  { href: '/contact', label: 'Contact' },
+];
+
+const pathname = Astro.url.pathname;
+---
+<nav class="nav">
+  <a href="/" class="nav__logo display">WildFrame</a>
+  <ul class="nav__links" role="list">
+    {links.map(l => (
+      <li>
+        <a
+          href={l.href}
+          class:list={['nav__link', { 'nav__link--active': pathname === l.href || (l.href !== '/' && pathname.startsWith(l.href)) }]}
+        >
+          {l.label}
+        </a>
+      </li>
+    ))}
+  </ul>
+</nav>
+
+<style>
+.nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 2rem;
+  background: linear-gradient(to bottom, rgba(26,26,24,0.85), transparent);
+  backdrop-filter: blur(2px);
+}
+
+.nav__logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--paper);
+  text-decoration: none;
+  letter-spacing: 0.04em;
+}
+
+.nav__links {
+  display: flex;
+  gap: 2rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nav__link {
+  font-size: 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(245,240,232,0.7);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.nav__link:hover,
+.nav__link--active {
+  color: var(--paper);
+}
+
+@media (max-width: 600px) {
+  .nav {
+    padding: 1rem 1.25rem;
+  }
+  .nav__links {
+    gap: 1.25rem;
+  }
+  .nav__logo {
+    font-size: 1.2rem;
+  }
+  .nav__link {
+    font-size: 0.7rem;
+  }
+}
+</style>

@@ -1,0 +1,99 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import GalleryGrid from '../components/GalleryGrid.astro';
+import { SAMPLE_PHOTOS } from '../lib/samplePhotos';
+
+// Static build uses sample photos; live data is loaded client-side after hydration.
+const photos = SAMPLE_PHOTOS;
+---
+
+<BaseLayout
+  title="Gallery — WildFrame"
+  description="Browse nature, trekking, and travel photographs across mountains, forests, trails, sunsets and rivers."
+>
+  <div class="gallery-header">
+    <p class="eyebrow">The Collection</p>
+    <h1 class="display gallery-title">Gallery</h1>
+  </div>
+
+  <GalleryGrid photos={photos} />
+</BaseLayout>
+
+<!-- Hydrate with live data after page load -->
+<script>
+  import type { PhotoEntry } from '../lib/photos';
+
+  async function loadLivePhotos() {
+    try {
+      const res = await fetch('/api/photos?limit=200');
+      if (!res.ok) return;
+      const data = await res.json() as { ok: boolean; photos: PhotoEntry[] };
+      if (!data.ok || !data.photos?.length) return;
+
+      const grid = document.getElementById('gallery-grid');
+      if (!grid) return;
+
+      // Build new card HTML from API response
+      const html = data.photos.map(p => {
+        const alt = (p.caption ?? p.place ?? 'Nature photo').replace(/"/g, '&quot;');
+        const cat = p.category ?? 'other';
+        return `
+          <a href="/story/${p.slug}" class="photo-card" data-category="${cat}" aria-label="${alt}">
+            <div class="photo-card__img-wrap">
+              <img src="${p.imageUrl}" alt="${alt}" loading="lazy" class="photo-card__img" />
+              <div class="photo-card__overlay" aria-hidden="true"></div>
+            </div>
+            <div class="photo-card__meta">
+              <span class="photo-card__category">${cat}</span>
+              ${p.place ? `<p class="photo-card__place">${p.place}</p>` : ''}
+              ${p.caption ? `<p class="photo-card__caption">${p.caption}</p>` : ''}
+            </div>
+          </a>`;
+      }).join('');
+
+      grid.innerHTML = html;
+
+      // Re-apply current filter
+      const params = new URLSearchParams(window.location.search);
+      const active = params.get('category') ?? 'all';
+      const cards = Array.from(grid.querySelectorAll<HTMLElement>('[data-category]'));
+      const emptyEl = document.getElementById('gallery-empty');
+      let visible = 0;
+      cards.forEach(card => {
+        const match = active === 'all' || card.dataset.category === active;
+        card.hidden = !match;
+        if (match) visible++;
+      });
+      if (emptyEl) emptyEl.hidden = visible > 0;
+    } catch {
+      // API unavailable — keep sample photos
+    }
+  }
+
+  loadLivePhotos();
+</script>
+
+<style>
+.gallery-header {
+  padding: 9rem 2.5rem 1rem;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.eyebrow {
+  font-size: 0.68rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--sunset);
+  margin-bottom: 0.5rem;
+}
+
+.gallery-title {
+  font-size: clamp(3rem, 7vw, 6rem);
+  color: var(--paper);
+}
+
+@media (max-width: 600px) {
+  .gallery-header { padding: 8rem 1.25rem 0.5rem; }
+}
+</style>

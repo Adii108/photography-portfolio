@@ -1,0 +1,385 @@
+---
+import { CATEGORIES } from '../lib/categories';
+---
+
+<form id="upload-form" class="upload-form" novalidate>
+  <!-- Image picker with preview -->
+  <div class="field">
+    <label for="image" class="field__label">Photo <span class="field__req" aria-hidden="true">*</span></label>
+    <div class="image-picker" id="image-picker">
+      <img src="" alt="" class="image-picker__preview" id="image-preview" hidden />
+      <div class="image-picker__placeholder" id="image-placeholder">
+        <span class="image-picker__icon" aria-hidden="true">🏔</span>
+        <span class="image-picker__hint">Click or drag an image here</span>
+        <span class="image-picker__types">JPEG · PNG · WebP · AVIF · max 10 MB</span>
+      </div>
+      <input
+        type="file"
+        id="image"
+        name="image"
+        accept="image/jpeg,image/png,image/webp,image/avif"
+        class="image-picker__input"
+        aria-required="true"
+      />
+    </div>
+    <p class="field__error" id="error-image" aria-live="polite"></p>
+  </div>
+
+  <!-- Caption -->
+  <div class="field">
+    <label for="caption" class="field__label">Caption <span class="field__opt">(optional)</span></label>
+    <input type="text" id="caption" name="caption" class="input" maxlength="300" placeholder="Mist over the valley at dawn" />
+  </div>
+
+  <!-- Place -->
+  <div class="field">
+    <label for="place" class="field__label">Place <span class="field__opt">(optional)</span></label>
+    <input type="text" id="place" name="place" class="input" maxlength="120" placeholder="Himachal Pradesh" />
+  </div>
+
+  <!-- Category -->
+  <div class="field">
+    <label for="category" class="field__label">Category</label>
+    <select id="category" name="category" class="input input--select">
+      {CATEGORIES.map(c => (
+        <option value={c.value}>{c.emoji} {c.label}</option>
+      ))}
+    </select>
+  </div>
+
+  <!-- Admin secret -->
+  <div class="field">
+    <label for="secret" class="field__label">Admin secret <span class="field__req" aria-hidden="true">*</span></label>
+    <input type="password" id="secret" name="secret" class="input" required autocomplete="current-password" />
+    <p class="field__error" id="error-secret" aria-live="polite"></p>
+  </div>
+
+  <!-- Submit -->
+  <div class="form-actions">
+    <button type="submit" id="submit-btn" class="upload-btn">
+      <span id="btn-label">Upload photo</span>
+      <span id="btn-spinner" class="spinner" hidden aria-hidden="true"></span>
+    </button>
+  </div>
+
+  <!-- Form-level messages -->
+  <p class="form-error"  id="form-error"   aria-live="assertive"></p>
+  <div class="form-success" id="form-success" hidden>
+    <span class="form-success__icon" aria-hidden="true">✅</span>
+    <div>
+      <p class="form-success__title">Photo uploaded!</p>
+      <p class="form-success__sub" id="success-slug"></p>
+      <button type="button" id="upload-another" class="upload-btn upload-btn--ghost">Upload another</button>
+    </div>
+  </div>
+</form>
+
+<script>
+  const form        = document.getElementById('upload-form') as HTMLFormElement;
+  const picker      = document.getElementById('image-picker') as HTMLElement;
+  const fileInput   = document.getElementById('image') as HTMLInputElement;
+  const preview     = document.getElementById('image-preview') as HTMLImageElement;
+  const placeholder = document.getElementById('image-placeholder') as HTMLElement;
+  const submitBtn   = document.getElementById('submit-btn') as HTMLButtonElement;
+  const btnLabel    = document.getElementById('btn-label') as HTMLSpanElement;
+  const btnSpinner  = document.getElementById('btn-spinner') as HTMLSpanElement;
+  const formError   = document.getElementById('form-error') as HTMLParagraphElement;
+  const formSuccess = document.getElementById('form-success') as HTMLElement;
+  const successSlug = document.getElementById('success-slug') as HTMLParagraphElement;
+  const anotherBtn  = document.getElementById('upload-another') as HTMLButtonElement;
+  const errorImage  = document.getElementById('error-image') as HTMLParagraphElement;
+  const errorSecret = document.getElementById('error-secret') as HTMLParagraphElement;
+
+  // Image preview
+  function showPreview(file: File) {
+    const url = URL.createObjectURL(file);
+    preview.src = url;
+    preview.alt = file.name;
+    preview.hidden = false;
+    placeholder.hidden = true;
+    errorImage.textContent = '';
+  }
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files?.[0]) showPreview(fileInput.files[0]);
+  });
+
+  // Drag-and-drop
+  picker.addEventListener('dragover', e => { e.preventDefault(); picker.classList.add('drag-over'); });
+  picker.addEventListener('dragleave', () => picker.classList.remove('drag-over'));
+  picker.addEventListener('drop', e => {
+    e.preventDefault();
+    picker.classList.remove('drag-over');
+    const file = e.dataTransfer?.files[0];
+    if (file) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      fileInput.files = dt.files;
+      showPreview(file);
+    }
+  });
+
+  function setLoading(on: boolean) {
+    submitBtn.disabled = on;
+    btnLabel.textContent = on ? 'Uploading…' : 'Upload photo';
+    btnSpinner.hidden = !on;
+  }
+
+  function clearErrors() {
+    formError.textContent = '';
+    errorImage.textContent = '';
+    errorSecret.textContent = '';
+  }
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    clearErrors();
+
+    // Client-side validation
+    if (!fileInput.files?.[0]) {
+      errorImage.textContent = 'Please select an image.';
+      fileInput.focus();
+      return;
+    }
+
+    const secretInput = form.querySelector<HTMLInputElement>('#secret');
+    if (!secretInput?.value.trim()) {
+      errorSecret.textContent = 'Admin secret is required.';
+      secretInput?.focus();
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const fd = new FormData(form);
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const data = await res.json() as { ok: boolean; error?: string; photo?: { slug: string } };
+
+      if (!data.ok) {
+        const msg = data.error ?? 'Upload failed. Please try again.';
+        if (res.status === 401) {
+          errorSecret.textContent = 'Incorrect admin secret.';
+        } else {
+          formError.textContent = msg;
+        }
+        return;
+      }
+
+      // Success
+      formSuccess.hidden = false;
+      successSlug.textContent = `Story page: /story/${data.photo?.slug ?? ''}`;
+      form.reset();
+      preview.hidden = true;
+      placeholder.hidden = false;
+    } catch {
+      formError.textContent = 'Network error — please check your connection and try again.';
+    } finally {
+      setLoading(false);
+    }
+  });
+
+  anotherBtn.addEventListener('click', () => {
+    formSuccess.hidden = true;
+    clearErrors();
+  });
+</script>
+
+<style>
+.upload-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 560px;
+}
+
+.field { display: flex; flex-direction: column; gap: 0.4rem; }
+
+.field__label {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(245,240,232,0.55);
+}
+
+.field__req { color: var(--sunset); }
+.field__opt { opacity: 0.5; text-transform: none; letter-spacing: 0; }
+
+.input {
+  background: rgba(245,240,232,0.05);
+  border: 1px solid rgba(245,240,232,0.12);
+  border-radius: 3px;
+  padding: 0.7rem 0.9rem;
+  color: var(--paper);
+  font-size: 0.92rem;
+  font-family: inherit;
+  transition: border-color 0.2s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--sunset);
+}
+
+.input--select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M0 0l6 8 6-8z' fill='rgba(245,240,232,0.3)'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.8rem center;
+  padding-right: 2rem;
+}
+
+/* Image picker */
+.image-picker {
+  position: relative;
+  border: 1px dashed rgba(245,240,232,0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  min-height: 180px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-picker:hover,
+.image-picker.drag-over {
+  border-color: var(--sunset);
+  background: rgba(200,90,42,0.04);
+}
+
+.image-picker__input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.image-picker__preview {
+  width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+  display: block;
+}
+
+.image-picker__placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 2rem;
+  pointer-events: none;
+}
+
+.image-picker__icon { font-size: 2rem; }
+
+.image-picker__hint {
+  font-size: 0.85rem;
+  color: rgba(245,240,232,0.55);
+}
+
+.image-picker__types {
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(245,240,232,0.25);
+}
+
+/* Actions */
+.form-actions { margin-top: 0.5rem; }
+
+.upload-btn {
+  padding: 0.8rem 2.2rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+  background: var(--sunset);
+  color: var(--paper);
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.upload-btn:hover:not(:disabled) {
+  background: #d96b3a;
+  transform: translateY(-1px);
+}
+
+.upload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.upload-btn--ghost {
+  background: transparent;
+  border: 1px solid rgba(245,240,232,0.25);
+  color: var(--paper);
+  margin-top: 0.75rem;
+}
+
+.upload-btn--ghost:hover {
+  border-color: var(--paper);
+  background: rgba(245,240,232,0.06);
+  transform: none;
+}
+
+/* Spinner */
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(245,240,232,0.3);
+  border-top-color: var(--paper);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; }
+}
+
+/* Messages */
+.field__error,
+.form-error {
+  font-size: 0.78rem;
+  color: #e05a3a;
+  min-height: 1.1rem;
+}
+
+.form-success {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 1px solid rgba(74,167,74,0.3);
+  border-radius: 4px;
+  background: rgba(74,167,74,0.06);
+}
+
+.form-success[hidden] { display: none; }
+
+.form-success__icon { font-size: 1.4rem; }
+
+.form-success__title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--paper);
+  margin-bottom: 0.2rem;
+}
+
+.form-success__sub {
+  font-size: 0.78rem;
+  color: rgba(245,240,232,0.45);
+  font-family: monospace;
+}
+</style>

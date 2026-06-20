@@ -1,0 +1,171 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+// Pull from env — these are build-time public variables.
+// Set them as INSTAGRAM_HANDLE, CONTACT_EMAIL, WHATSAPP_NUMBER in Cloudflare Pages env.
+const instagram = import.meta.env.PUBLIC_INSTAGRAM_HANDLE ?? '';
+const email     = import.meta.env.PUBLIC_CONTACT_EMAIL ?? '';
+const whatsapp  = import.meta.env.PUBLIC_WHATSAPP_NUMBER ?? '';
+
+type Link = { href: string; label: string; sub: string; icon: string };
+const links: Link[] = [];
+
+if (instagram) links.push({
+  href: `https://instagram.com/${instagram.replace('@', '')}`,
+  label: 'Instagram',
+  sub: `@${instagram.replace('@', '')}`,
+  icon: '📸',
+});
+
+if (email) links.push({
+  href: `mailto:${email}`,
+  label: 'Email',
+  sub: email,
+  icon: '✉️',
+});
+
+if (whatsapp) links.push({
+  href: `https://wa.me/${whatsapp.replace(/\D/g, '')}`,
+  label: 'WhatsApp',
+  sub: whatsapp,
+  icon: '💬',
+});
+---
+
+<BaseLayout
+  title="Contact — WildFrame"
+  description="Get in touch via Instagram, email, or WhatsApp."
+>
+  <div class="contact">
+    <div class="contact__header">
+      <p class="eyebrow">Say hello</p>
+      <h1 class="display contact__title">Let's connect</h1>
+      <p class="contact__sub">
+        Whether it's a collaboration, a print inquiry, or just a note about
+        the mountains — I'd love to hear from you.
+      </p>
+    </div>
+
+    {links.length > 0 ? (
+      <ul class="contact__links" role="list">
+        {links.map(l => (
+          <li>
+            <a href={l.href} target="_blank" rel="noopener noreferrer" class="contact-card">
+              <span class="contact-card__icon" aria-hidden="true">{l.icon}</span>
+              <span class="contact-card__text">
+                <span class="contact-card__label">{l.label}</span>
+                <span class="contact-card__sub">{l.sub}</span>
+              </span>
+              <span class="contact-card__arrow" aria-hidden="true">↗</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p class="contact__empty">
+        Contact details coming soon — check back shortly.
+      </p>
+    )}
+  </div>
+</BaseLayout>
+
+<style>
+.contact {
+  min-height: 80vh;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 9rem 2.5rem 6rem;
+}
+
+.eyebrow {
+  font-size: 0.68rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--sunset);
+  margin-bottom: 0.75rem;
+}
+
+.contact__title {
+  font-size: clamp(2.5rem, 6vw, 5rem);
+  color: var(--paper);
+  line-height: 1;
+  margin-bottom: 1.5rem;
+}
+
+.contact__sub {
+  font-size: 0.97rem;
+  color: rgba(245,240,232,0.55);
+  line-height: 1.75;
+  max-width: 400px;
+  margin-bottom: 3.5rem;
+}
+
+.contact__links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.contact-card {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.4rem 1.5rem;
+  border: 1px solid rgba(245,240,232,0.1);
+  border-radius: 4px;
+  text-decoration: none;
+  color: var(--paper);
+  transition: all 0.2s;
+}
+
+.contact-card:hover {
+  border-color: var(--sunset);
+  background: rgba(200,90,42,0.06);
+  transform: translateX(4px);
+}
+
+.contact-card__icon { font-size: 1.5rem; }
+
+.contact-card__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  flex: 1;
+}
+
+.contact-card__label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--paper);
+}
+
+.contact-card__sub {
+  font-size: 0.85rem;
+  color: rgba(245,240,232,0.45);
+}
+
+.contact-card__arrow {
+  font-size: 1.1rem;
+  color: rgba(245,240,232,0.25);
+  transition: color 0.2s;
+}
+
+.contact-card:hover .contact-card__arrow {
+  color: var(--sunset);
+}
+
+.contact__empty {
+  font-size: 0.9rem;
+  color: rgba(245,240,232,0.35);
+  font-style: italic;
+}
+
+@media (max-width: 600px) {
+  .contact { padding: 8rem 1.25rem 4rem; }
+}
+</style>

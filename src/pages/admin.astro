@@ -1,0 +1,51 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import UploadForm from '../components/UploadForm.astro';
+---
+
+<BaseLayout title="Admin Upload — WildFrame" description="Upload a new photo to WildFrame.">
+  <div class="admin">
+    <div class="admin__header">
+      <p class="eyebrow">Admin</p>
+      <h1 class="display admin__title">Upload a photo</h1>
+      <p class="admin__sub">Add an image, optional caption and place, then submit with your admin secret.</p>
+    </div>
+
+    <UploadForm />
+  </div>
+</BaseLayout>
+
+<style>
+.admin {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 9rem 2.5rem 6rem;
+}
+
+.eyebrow {
+  font-size: 0.68rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--sunset);
+  margin-bottom: 0.75rem;
+}
+
+.admin__title {
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  color: var(--paper);
+  line-height: 1;
+  margin-bottom: 1rem;
+}
+
+.admin__sub {
+  font-size: 0.92rem;
+  color: rgba(245,240,232,0.5);
+  line-height: 1.7;
+  max-width: 420px;
+  margin-bottom: 3rem;
+}
+
+@media (max-width: 600px) {
+  .admin { padding: 8rem 1.25rem 4rem; }
+}
+</style>

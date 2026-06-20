@@ -1,0 +1,326 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { SAMPLE_PHOTOS } from '../../lib/samplePhotos';
+import type { PhotoEntry } from '../../lib/photos';
+
+// Pre-render all sample photo slugs at build time.
+// Uploaded photos are handled client-side via the <script> below.
+export async function getStaticPaths() {
+  return [
+    // One catch-all entry for dynamic slugs not in sample data
+    { params: { slug: '_' }, props: { photo: null } },
+    ...SAMPLE_PHOTOS.map(photo => ({
+      params: { slug: photo.slug },
+      props: { photo },
+    })),
+  ];
+}
+
+interface Props {
+  photo: PhotoEntry | null;
+}
+
+const { photo: ssrPhoto } = Astro.props;
+const { slug } = Astro.params;
+
+const formattedDate = ssrPhoto?.createdAt
+  ? new Date(ssrPhoto.createdAt).toLocaleDateString('en-US', {
+      year: 'numeric', month: 'long', day: 'numeric',
+    })
+  : null;
+---
+
+<BaseLayout
+  title={ssrPhoto ? `${ssrPhoto.caption ?? ssrPhoto.place ?? 'Photo'} — WildFrame` : 'Loading — WildFrame'}
+  description={ssrPhoto?.caption ?? ssrPhoto?.place ?? 'A nature photograph from WildFrame'}
+  image={ssrPhoto?.imageUrl}
+>
+  <!-- Skeleton shown until JS resolves the photo (for dynamic slugs) -->
+  <div id="story-skeleton" class:list={['story-skeleton', { hidden: !!ssrPhoto }]} aria-hidden="true"></div>
+
+  <!-- Not-found state (shown by JS if photo not found) -->
+  <div id="story-not-found" class="not-found" hidden>
+    <p class="not-found__code">404</p>
+    <h1 class="display not-found__title">Frame not found</h1>
+    <p class="not-found__body">This photo may have moved or the link is broken.</p>
+    <a href="/gallery" class="not-found__link">← Back to gallery</a>
+  </div>
+
+  <!-- Story content -->
+  <article id="story-content" class="story" class:list={{ hidden: !ssrPhoto }} data-slug={slug} data-has-ssr={ssrPhoto ? 'true' : 'false'}>
+    {ssrPhoto ? (
+      <>
+        <div class="story__hero">
+          <img
+            src={ssrPhoto.imageUrl}
+            alt={ssrPhoto.caption ?? ssrPhoto.place ?? 'Nature photo'}
+            class="story__hero-img"
+            fetchpriority="high"
+            id="story-img"
+          />
+          <div class="story__hero-overlay" aria-hidden="true"></div>
+          {ssrPhoto.caption && (
+            <blockquote class="story__pullquote">
+              <p class="display">{ssrPhoto.caption}</p>
+            </blockquote>
+          )}
+        </div>
+        <div class="story__body">
+          <div class="story__meta">
+            {ssrPhoto.category && <span class="story__tag">{ssrPhoto.category}</span>}
+            {ssrPhoto.place && <span class="story__place">{ssrPhoto.place}</span>}
+            {formattedDate && <time class="story__date" datetime={ssrPhoto.createdAt}>{formattedDate}</time>}
+          </div>
+          {ssrPhoto.caption && <p class="story__caption">{ssrPhoto.caption}</p>}
+          <a href="/gallery" class="story__back">← Back to gallery</a>
+        </div>
+      </>
+    ) : (
+      <!-- Placeholder structure populated by JS for live slugs -->
+      <div class="story__hero">
+        <img src="" alt="" class="story__hero-img" fetchpriority="high" id="story-img" />
+        <div class="story__hero-overlay" aria-hidden="true"></div>
+        <blockquote class="story__pullquote" id="story-pullquote" hidden>
+          <p class="display" id="story-pullquote-text"></p>
+        </blockquote>
+      </div>
+      <div class="story__body">
+        <div class="story__meta" id="story-meta"></div>
+        <p class="story__caption" id="story-caption" hidden></p>
+        <a href="/gallery" class="story__back">← Back to gallery</a>
+      </div>
+    )}
+  </article>
+</BaseLayout>
+
+<!-- Resolve dynamic slugs at runtime via the API -->
+<script>
+  const content   = document.getElementById('story-content') as HTMLElement | null;
+  const hasSSR    = content?.dataset.hasSsr === 'true';
+
+  if (!hasSSR) {
+    const ssrSlug = content?.dataset.slug ?? '';
+    const slug = ssrSlug === '_'
+      ? window.location.pathname.split('/story/')[1]?.replace(/\/$/, '') ?? ''
+      : ssrSlug;
+
+    async function resolveStory() {
+      const skeleton  = document.getElementById('story-skeleton');
+      const notFound  = document.getElementById('story-not-found');
+      const storyEl   = document.getElementById('story-content');
+
+      interface PhotoData {
+        ok: boolean;
+        photos: Array<{
+          slug: string; imageUrl: string; caption?: string;
+          place?: string; category?: string; createdAt: string;
+        }>;
+      }
+
+      try {
+        const res = await fetch('/api/photos?limit=200');
+        if (!res.ok) throw new Error('API error');
+        const data = await res.json() as PhotoData;
+        const photo = (data.photos ?? []).find((p) => p.slug === slug);
+
+        if (!photo) {
+          skeleton?.remove();
+          if (notFound) notFound.hidden = false;
+          return;
+        }
+
+        // Populate dynamic fields
+        const img = document.getElementById('story-img') as HTMLImageElement | null;
+        if (img) { img.src = photo.imageUrl; img.alt = photo.caption ?? photo.place ?? 'Nature photo'; }
+
+        const pullquote = document.getElementById('story-pullquote');
+        const pullText  = document.getElementById('story-pullquote-text');
+        if (photo.caption && pullquote && pullText) {
+          pullText.textContent = photo.caption;
+          pullquote.hidden = false;
+        }
+
+        const meta = document.getElementById('story-meta');
+        if (meta) {
+          const date = new Date(photo.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+          meta.innerHTML = [
+            photo.category ? `<span class="story__tag">${photo.category}</span>` : '',
+            photo.place    ? `<span class="story__place">${photo.place}</span>` : '',
+            `<time class="story__date" datetime="${photo.createdAt}">${date}</time>`,
+          ].join('');
+        }
+
+        const capEl = document.getElementById('story-caption');
+        if (photo.caption && capEl) { capEl.textContent = photo.caption; capEl.hidden = false; }
+
+        document.title = `${photo.caption ?? photo.place ?? 'Photo'} — WildFrame`;
+
+        skeleton?.remove();
+        if (storyEl) storyEl.removeAttribute('hidden');
+      } catch {
+        skeleton?.remove();
+        if (notFound) notFound.hidden = false;
+      }
+    }
+
+    resolveStory();
+  }
+</script>
+
+<style>
+/* ── Skeleton ── */
+.story-skeleton {
+  height: 90vh;
+  background: linear-gradient(135deg, rgba(245,240,232,0.04) 0%, rgba(245,240,232,0.02) 100%);
+  animation: shimmer 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes shimmer {
+  from { opacity: 0.5; }
+  to   { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .story-skeleton { animation: none; }
+}
+
+/* ── Not found ── */
+.not-found {
+  min-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 4rem 1.5rem;
+  gap: 1rem;
+}
+
+.not-found__code {
+  font-size: 6rem;
+  font-family: 'Cormorant Garamond', serif;
+  color: rgba(245,240,232,0.1);
+  line-height: 1;
+}
+
+.not-found__title {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  color: var(--paper);
+}
+
+.not-found__body {
+  color: rgba(245,240,232,0.45);
+  font-size: 0.95rem;
+}
+
+.not-found__link {
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sunset);
+  text-decoration: none;
+  margin-top: 1rem;
+}
+
+/* ── Story hero ── */
+.story__hero {
+  position: relative;
+  height: 90vh;
+  min-height: 500px;
+  overflow: hidden;
+}
+
+.story__hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.story__hero-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to top, rgba(26,26,24,1) 0%, rgba(26,26,24,0.3) 40%, transparent 70%),
+    linear-gradient(to right, rgba(26,26,24,0.4) 0%, transparent 50%);
+}
+
+.story__pullquote {
+  position: absolute;
+  bottom: 3rem;
+  left: 2.5rem;
+  right: 2.5rem;
+  max-width: 640px;
+  margin: 0;
+  border: none;
+  padding: 0;
+}
+
+.story__pullquote p {
+  font-size: clamp(1.6rem, 4vw, 3rem);
+  color: var(--paper);
+  line-height: 1.1;
+  font-style: italic;
+}
+
+/* ── Story body ── */
+.story__body {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 3.5rem 2.5rem 6rem;
+}
+
+.story__meta {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.story__tag {
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  background: rgba(200,90,42,0.15);
+  color: var(--sunset);
+  padding: 0.25rem 0.7rem;
+  border-radius: 2px;
+  border: 1px solid rgba(200,90,42,0.3);
+}
+
+.story__place,
+.story__date {
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  color: rgba(245,240,232,0.45);
+}
+
+.story__place::before { content: '📍 '; }
+.story__date::before  { content: '🗓 '; }
+
+.story__caption {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(1.2rem, 2.5vw, 1.6rem);
+  color: rgba(245,240,232,0.75);
+  line-height: 1.6;
+  margin-bottom: 3rem;
+  font-style: italic;
+}
+
+.story__back {
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sunset);
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.story__back:hover { opacity: 0.7; }
+
+@media (max-width: 600px) {
+  .story__hero { height: 70vh; }
+  .story__pullquote { bottom: 1.5rem; left: 1.25rem; right: 1.25rem; }
+  .story__body { padding: 2.5rem 1.25rem 4rem; }
+}
+</style>
