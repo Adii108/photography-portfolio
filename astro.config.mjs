@@ -25,7 +25,7 @@ const syncPhotosJson = {
 };
 
 export default defineConfig({
-  output: 'hybrid',
+  output: 'static',
   adapter: cloudflare({
     imageService: 'passthrough',
   }),
