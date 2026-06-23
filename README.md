@@ -35,9 +35,10 @@ npm run dev        # Astro dev server at http://localhost:4321
 
 - Go to [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages** → **Create** → **Pages**
 - Click **Connect to Git** → authorize GitHub → select `photography-portfolio`
-- Build settings:
+- Build settings — set these **exactly**:
   - Build command: `npm run build`
   - Output directory: `dist`
+  - **Deploy command: leave this completely blank** ← critical, do not set this
 - Click **Save and Deploy**
 
 ### 2. Create a GitHub Personal Access Token
