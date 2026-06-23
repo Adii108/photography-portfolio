@@ -1,29 +1,10 @@
-name = "nature-travel-photography-site"
+name = "photography-portfolio"
 compatibility_date = "2024-06-20"
 pages_build_output_dir = "dist"
 
-# ── D1 database ──────────────────────────────────────────────────────────────
-# Replace YOUR_D1_DATABASE_ID with the ID from:
-#   npx wrangler d1 create nature-photos-db
-[[d1_databases]]
-binding = "PHOTO_DB"
-database_name = "nature-photos-db"
-database_id = "YOUR_D1_DATABASE_ID"
-
-# ── R2 bucket ────────────────────────────────────────────────────────────────
-# Create the bucket with:
-#   npx wrangler r2 bucket create nature-photos
-[[r2_buckets]]
-binding = "PHOTO_BUCKET"
-bucket_name = "nature-photos"
-
-# ── Environment variables ────────────────────────────────────────────────────
-# PUBLIC_R2_BASE_URL: optional public base URL for R2 assets
-#   e.g. https://pub-xxxx.r2.dev  (set in Cloudflare Pages dashboard)
-# ADMIN_UPLOAD_SECRET: set ONLY as a secret in the Cloudflare dashboard
-#   npx wrangler pages secret put ADMIN_UPLOAD_SECRET
 [vars]
-PUBLIC_R2_BASE_URL = ""
+GITHUB_REPO             = "Adii108/photography-portfolio"
+GITHUB_BRANCH           = "master"
 PUBLIC_INSTAGRAM_HANDLE = ""
-PUBLIC_CONTACT_EMAIL = ""
-PUBLIC_WHATSAPP_NUMBER = ""
+PUBLIC_CONTACT_EMAIL    = ""
+PUBLIC_WHATSAPP_NUMBER  = ""
