@@ -1,14 +1,22 @@
 # WildFrame — Nature Travel Photography Site
 
-A cinematic nature photography journal built with Astro, Tailwind CSS, and Cloudflare Pages.
+A cinematic nature photography journal built with Astro, Tailwind CSS, hosted on Cloudflare Pages. All photos and metadata are stored directly in this GitHub repository — no paid database or storage services needed.
 
 ## Stack
 
 - **Astro** (static output) + **TypeScript**
 - **Tailwind CSS** + custom CSS variables
-- **Cloudflare Pages** (hosting + Functions)
-- **Cloudflare R2** (image storage)
-- **Cloudflare D1** (photo metadata)
+- **Cloudflare Pages** (free hosting + API functions)
+- **GitHub repo** (image files in `public/photos/`, metadata in `src/data/photos.json`)
+
+## How uploads work
+
+When you submit a photo via `/admin`:
+
+1. The Cloudflare Pages Function calls the GitHub API to commit the image into `public/photos/`
+2. It then updates `src/data/photos.json` with the new photo entry
+3. The commit triggers a Cloudflare Pages rebuild automatically
+4. The new photo appears on the live site within ~30 seconds
 
 ---
 
@@ -19,94 +27,67 @@ npm install
 npm run dev        # Astro dev server at http://localhost:4321
 ```
 
-To test Pages Functions locally (requires Wrangler):
-
-```bash
-npx wrangler pages dev dist --d1=PHOTO_DB=<your-db-id> --r2=PHOTO_BUCKET=<bucket>
-# or use the built-in wrangler dev after building:
-npm run build && npx wrangler pages dev dist
-```
-
 ---
 
-## Cloudflare setup
+## Deploy to Cloudflare Pages (free)
 
-### 1. Create D1 database
+### 1. Create the Pages project
 
-```bash
-npx wrangler d1 create nature-photos-db
-# Copy the returned database_id into wrangler.toml
-```
+- Go to [dash.cloudflare.com](https://dash.cloudflare.com) → **Workers & Pages** → **Create** → **Pages**
+- Click **Connect to Git** → authorize GitHub → select `photography-portfolio`
+- Build settings:
+  - Build command: `npm run build`
+  - Output directory: `dist`
+- Click **Save and Deploy**
 
-Run the migration:
+### 2. Create a GitHub Personal Access Token
 
-```bash
-npx wrangler d1 execute nature-photos-db --file=migrations/0001_create_photos.sql
-# For production:
-npx wrangler d1 execute nature-photos-db --remote --file=migrations/0001_create_photos.sql
-```
+- Go to [github.com/settings/tokens](https://github.com/settings/tokens) → **Fine-grained tokens** → **Generate new token**
+- Set repository access to `photography-portfolio` only
+- Under **Repository permissions** → set **Contents** to **Read and Write**
+- Copy the generated token
 
-### 2. Create R2 bucket
+### 3. Set environment variables
 
-```bash
-npx wrangler r2 bucket create nature-photos
-```
+In Cloudflare Pages → your project → **Settings** → **Environment variables** → **Production**:
 
-If you want public access to images, enable the public URL on the bucket in the Cloudflare dashboard and set `PUBLIC_R2_BASE_URL` to the provided base URL (e.g. `https://pub-xxxx.r2.dev`).
-
-### 3. Environment variables
-
-Set these in the **Cloudflare Pages dashboard → Settings → Environment variables**:
-
-| Variable | Required | Description |
+| Variable | Type | Value |
 |---|---|---|
-| `ADMIN_UPLOAD_SECRET` | ✅ | Secret used to authenticate the `/api/upload` endpoint |
-| `PUBLIC_R2_BASE_URL` | optional | Public base URL for R2 assets |
-| `PUBLIC_INSTAGRAM_HANDLE` | optional | e.g. `@wildframe` |
-| `PUBLIC_CONTACT_EMAIL` | optional | Contact email shown on /contact |
-| `PUBLIC_WHATSAPP_NUMBER` | optional | Phone number (digits only) |
+| `ADMIN_UPLOAD_SECRET` | Secret | Any password you choose for the upload form |
+| `GITHUB_TOKEN` | Secret | The fine-grained token you just created |
+| `GITHUB_REPO` | Plain | `Adii108/photography-portfolio` |
+| `GITHUB_BRANCH` | Plain | `master` |
+| `PUBLIC_INSTAGRAM_HANDLE` | Plain | e.g. `@yourname` (optional) |
+| `PUBLIC_CONTACT_EMAIL` | Plain | Your email (optional) |
+| `PUBLIC_WHATSAPP_NUMBER` | Plain | Digits only e.g. `919876543210` (optional) |
 
-Set the admin secret as a **secret** (not a plain variable):
+### 4. Redeploy
 
-```bash
-npx wrangler pages secret put ADMIN_UPLOAD_SECRET
-```
-
-### 4. Deploy
-
-```bash
-npm run build
-npx wrangler pages deploy dist --project-name=nature-travel-photography-site
-```
-
-Or connect the repository to Cloudflare Pages (recommended):
-
-- Build command: `npm run build`
-- Output directory: `dist`
-- Bind `PHOTO_DB` (D1) and `PHOTO_BUCKET` (R2) under **Functions → Bindings**
+After adding variables, go to **Deployments** → click **Retry deployment** once. After that, every push to `master` redeploys automatically.
 
 ---
 
-## Upload photos
+## Uploading photos
 
-1. Open `/admin` on the deployed site.
-2. Select an image (JPEG, PNG, WebP, or AVIF, max 10 MB).
-3. Fill in caption, place, and category (all optional).
-4. Enter your `ADMIN_UPLOAD_SECRET`.
-5. Submit — the photo appears in the gallery immediately.
+1. Open `/admin` on your live site
+2. Select an image (JPEG, PNG, WebP, or AVIF — max 10 MB)
+3. Fill in caption, place, and category (all optional)
+4. Enter your `ADMIN_UPLOAD_SECRET`
+5. Submit — the photo is committed to GitHub and the site rebuilds
 
 ---
 
 ## Project structure
 
 ```
-functions/api/      Cloudflare Pages Functions (photos API, upload)
-migrations/         D1 SQL migrations
+functions/api/      Cloudflare Pages Functions (photos API, upload via GitHub API)
+public/photos/      Uploaded images (committed to this repo)
 src/
   components/       Astro UI components
+  data/             photos.json — photo metadata (committed to this repo)
   layouts/          BaseLayout
   lib/              Types, sample data, category constants
   pages/            All public routes
   styles/           Global CSS + design tokens
-wrangler.toml       Cloudflare bindings config
+wrangler.toml       Cloudflare Pages config
 ```
