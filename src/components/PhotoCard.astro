@@ -3,60 +3,63 @@ import type { PhotoEntry } from '../lib/photos';
 
 interface Props {
   photo: PhotoEntry;
+  /** Grid span variant — controls aspect feel inside the collage grid */
+  variant?: 'portrait' | 'landscape' | 'square' | 'wide';
 }
 
-const { photo } = Astro.props;
+const { photo, variant = 'portrait' } = Astro.props;
 const alt = photo.caption ?? photo.place ?? 'Nature photo';
 ---
 
 <a
   href={`/story/${photo.slug}`}
-  class="photo-card"
+  class:list={['photo-card', `photo-card--${variant}`]}
   data-category={photo.category ?? 'other'}
   aria-label={alt}
 >
-  <div class="photo-card__img-wrap">
-    <img
-      src={photo.imageUrl}
-      alt={alt}
-      loading="lazy"
-      decoding="async"
-      class="photo-card__img"
-    />
-    <div class="photo-card__overlay" aria-hidden="true"></div>
-  </div>
-  <div class="photo-card__meta">
-    {photo.category && (
-      <span class="photo-card__category">{photo.category}</span>
-    )}
-    {photo.place && <p class="photo-card__place">{photo.place}</p>}
-    {photo.caption && <p class="photo-card__caption">{photo.caption}</p>}
+  <img
+    src={photo.imageUrl}
+    alt={alt}
+    loading="lazy"
+    decoding="async"
+    class="photo-card__img"
+  />
+
+  <!-- Hover overlay with metadata -->
+  <div class="photo-card__info" aria-hidden="true">
+    {photo.category && <span class="photo-card__cat">{photo.category}</span>}
+    {photo.place    && <p   class="photo-card__place">{photo.place}</p>}
+    {photo.caption  && <p   class="photo-card__caption">{photo.caption}</p>}
   </div>
 </a>
 
 <style>
 .photo-card {
   display: block;
-  text-decoration: none;
   position: relative;
   overflow: hidden;
-  border-radius: 3px;
-  background: rgba(245,240,232,0.04);
-  /* Promote to own layer — avoids repaints of sibling cards */
+  border-radius: 14px;
   isolation: isolate;
-  transition: transform 0.35s var(--ease-out-expo, cubic-bezier(0.16,1,0.3,1));
+  text-decoration: none;
+  width: 100%;
+  height: 100%;
+  background: rgba(245,240,232,0.04);
+  /* subtle border for depth */
+  box-shadow:
+    0 0 0 1px rgba(245,240,232,0.07),
+    0 4px 24px rgba(0,0,0,0.35);
+  transition: transform 0.4s var(--ease-out-expo, cubic-bezier(0.16,1,0.3,1)),
+              box-shadow 0.4s ease;
 }
 
 .photo-card:hover {
-  transform: translateY(-5px);
+  transform: translateY(-4px) scale(1.012);
+  box-shadow:
+    0 0 0 1px rgba(200,90,42,0.3),
+    0 12px 40px rgba(0,0,0,0.5);
 }
 
-.photo-card__img-wrap {
-  position: relative;
-  aspect-ratio: 3/4;
-  overflow: hidden;
-}
-
+/* ── Image fills the whole card ── */
 .photo-card__img {
   width: 100%;
   height: 100%;
@@ -66,45 +69,50 @@ const alt = photo.caption ?? photo.place ?? 'Nature photo';
 }
 
 .photo-card:hover .photo-card__img {
-  transform: scale(1.06);
+  transform: scale(1.07);
 }
 
-.photo-card__overlay {
+/* ── Hover info panel ── */
+.photo-card__info {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(26,26,24,0.85) 0%, transparent 60%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 1rem 1.1rem;
+  background: linear-gradient(
+    to top,
+    rgba(26,26,24,0.88) 0%,
+    rgba(26,26,24,0.3) 40%,
+    transparent 70%
+  );
   opacity: 0;
-  transition: opacity 0.35s ease;
+  transition: opacity 0.3s ease;
 }
 
-.photo-card:hover .photo-card__overlay {
+.photo-card:hover .photo-card__info {
   opacity: 1;
 }
 
-.photo-card__meta {
-  padding: 0.9rem 1rem;
-}
-
-.photo-card__category {
-  font-size: 0.6rem;
+.photo-card__cat {
+  font-size: 0.58rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--sunset);
-  display: block;
-  margin-bottom: 0.3rem;
+  margin-bottom: 0.25rem;
 }
 
 .photo-card__place {
-  font-size: 0.75rem;
-  color: rgba(245,240,232,0.5);
-  letter-spacing: 0.05em;
-  margin-bottom: 0.25rem;
+  font-size: 0.7rem;
+  color: rgba(245,240,232,0.55);
+  letter-spacing: 0.04em;
+  margin-bottom: 0.2rem;
 }
 
 .photo-card__caption {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 1rem;
+  font-size: 0.95rem;
   color: var(--paper);
-  line-height: 1.35;
+  line-height: 1.3;
 }
 </style>
