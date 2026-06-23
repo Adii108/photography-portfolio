@@ -7,7 +7,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "typecheck": "astro check",
-    "deploy": "wrangler pages deploy dist --project-name=photography-portfolio"
+    "deploy": "wrangler pages deploy dist --project-name=photography-portfolio --branch=master"
   },
   "dependencies": {
     "@astrojs/tailwind": "^5.1.0",
