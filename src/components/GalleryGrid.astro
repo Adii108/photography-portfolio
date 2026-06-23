@@ -74,8 +74,6 @@ const photosWithVariant = photos.map((photo, i) => ({
   const grid    = document.getElementById('gallery-grid') as HTMLElement;
   const empty   = document.getElementById('gallery-empty') as HTMLElement;
   const buttons = document.querySelectorAll<HTMLButtonElement>('.filter-btn');
-  const cells   = grid ? Array.from(grid.querySelectorAll<HTMLElement>('.collage-cell')) : [];
-
   const params = new URLSearchParams(window.location.search);
   let active  = params.get('category') ?? 'all';
   let pending: number | null = null;
@@ -85,6 +83,8 @@ const photosWithVariant = photos.map((photo, i) => ({
     buttons.forEach(btn =>
       btn.setAttribute('aria-pressed', btn.dataset.filter === filter ? 'true' : 'false')
     );
+
+    const cells = grid ? Array.from(grid.querySelectorAll<HTMLElement>('.collage-cell')) : [];
 
     if (pending !== null) cancelAnimationFrame(pending);
     pending = requestAnimationFrame(() => {

@@ -26,6 +26,15 @@ const photos = livePhotos.length > 0 ? livePhotos : SAMPLE_PHOTOS;
 <script>
   import type { PhotoEntry } from '../lib/photos';
 
+  const PATTERN = [
+    'wide',      'portrait',  'portrait',
+    'landscape', 'square',    'square',
+    'portrait',  'landscape', 'square',
+    'portrait',  'square',    'landscape',
+    'wide',      'square',    'square',
+    'square',    'portrait',  'landscape',
+  ];
+
   async function loadLivePhotos() {
     try {
       const res = await fetch('/api/photos?limit=200');
@@ -36,35 +45,35 @@ const photos = livePhotos.length > 0 ? livePhotos : SAMPLE_PHOTOS;
       const grid = document.getElementById('gallery-grid');
       if (!grid) return;
 
-      // Build new card HTML from API response
-      const html = data.photos.map(p => {
+      // Build new card HTML from API response using the exact layout pattern and classes
+      const html = data.photos.map((p, i) => {
         const alt = (p.caption ?? p.place ?? 'Nature photo').replace(/"/g, '&quot;');
         const cat = p.category ?? 'other';
+        const variant = PATTERN[i % PATTERN.length];
         return `
-          <a href="/story/${p.slug}" class="photo-card" data-category="${cat}" aria-label="${alt}">
-            <div class="photo-card__img-wrap">
+          <div class="collage-cell collage-cell--${variant}" data-category="${cat}">
+            <a href="/story/${p.slug}" class="photo-card photo-card--${variant}" aria-label="${alt}">
               <img src="${p.imageUrl}" alt="${alt}" loading="lazy" class="photo-card__img" />
-              <div class="photo-card__overlay" aria-hidden="true"></div>
-            </div>
-            <div class="photo-card__meta">
-              <span class="photo-card__category">${cat}</span>
-              ${p.place ? `<p class="photo-card__place">${p.place}</p>` : ''}
-              ${p.caption ? `<p class="photo-card__caption">${p.caption}</p>` : ''}
-            </div>
-          </a>`;
+              <div class="photo-card__info" aria-hidden="true">
+                <span class="photo-card__cat">${cat}</span>
+                ${p.place ? `<p class="photo-card__place">${p.place}</p>` : ''}
+                ${p.caption ? `<p class="photo-card__caption">${p.caption}</p>` : ''}
+              </div>
+            </a>
+          </div>`;
       }).join('');
 
       grid.innerHTML = html;
 
-      // Re-apply current filter
+      // Re-apply current filter using the same transition classes as GalleryGrid
       const params = new URLSearchParams(window.location.search);
       const active = params.get('category') ?? 'all';
-      const cards = Array.from(grid.querySelectorAll<HTMLElement>('[data-category]'));
+      const cells = Array.from(grid.querySelectorAll<HTMLElement>('.collage-cell'));
       const emptyEl = document.getElementById('gallery-empty');
       let visible = 0;
-      cards.forEach(card => {
-        const match = active === 'all' || card.dataset.category === active;
-        card.hidden = !match;
+      cells.forEach(cell => {
+        const match = active === 'all' || cell.dataset.category === active;
+        cell.classList.toggle('cell-hidden', !match);
         if (match) visible++;
       });
       if (emptyEl) emptyEl.hidden = visible > 0;
