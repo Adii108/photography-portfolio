@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import tailwind from '@astrojs/tailwind';
+import cloudflare from '@astrojs/cloudflare';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -24,6 +25,9 @@ const syncPhotosJson = {
 };
 
 export default defineConfig({
+  output: 'hybrid',
+  adapter: cloudflare({
+    imageService: 'passthrough',
+  }),
   integrations: [tailwind(), syncPhotosJson],
-  output: 'static',
 });

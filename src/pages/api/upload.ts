@@ -1,18 +1,6 @@
-/**
- * POST /api/upload
- *
- * Validates the admin secret, then uses the GitHub Contents API to:
- *   1. Commit the image file to public/photos/<id>.<ext>
- *   2. Read + update src/data/photos.json with the new entry
- *
- * Cloudflare Pages then rebuilds the site automatically.
- *
- * Required env vars (set in Cloudflare Pages dashboard):
- *   ADMIN_UPLOAD_SECRET  - password for the upload form
- *   GITHUB_TOKEN         - personal access token with repo write scope
- *   GITHUB_REPO          - e.g. "Adii108/photography-portfolio"
- *   GITHUB_BRANCH        - e.g. "master" (defaults to "master")
- */
+import type { APIRoute } from 'astro';
+
+export const prerender = false; // Run dynamically on the worker
 
 interface Env {
   ADMIN_UPLOAD_SECRET: string;
@@ -33,7 +21,6 @@ function slugify(text: string): string {
     .slice(0, 80);
 }
 
-/** Encode ArrayBuffer to base64 string (required by GitHub API). */
 function bufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = '';
@@ -99,8 +86,15 @@ async function githubPut(
   }
 }
 
-export const onRequestPost: PagesFunction<Env> = async (context) => {
-  // ── Auth ──────────────────────────────────────────────────────────────────
+export const POST: APIRoute = async (context) => {
+  // Access Cloudflare env variables from context.locals.runtime.env
+  const runtime = context.locals.runtime;
+  const env = runtime?.env as Env;
+
+  if (!env) {
+    return Response.json({ ok: false, error: 'Server configuration error: environment variables not found.' }, { status: 500 });
+  }
+
   let formData: FormData;
   try {
     formData = await context.request.formData();
@@ -109,11 +103,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   }
 
   const secret = formData.get('secret');
-  if (!context.env.ADMIN_UPLOAD_SECRET || secret !== context.env.ADMIN_UPLOAD_SECRET) {
+  if (!env.ADMIN_UPLOAD_SECRET || secret !== env.ADMIN_UPLOAD_SECRET) {
     return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
 
-  // ── Image validation ──────────────────────────────────────────────────────
   const imageFile = formData.get('image');
   if (!imageFile || !(imageFile instanceof File)) {
     return Response.json({ ok: false, error: 'Image file is required' }, { status: 400 });
@@ -131,17 +124,15 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     return Response.json({ ok: false, error: 'Image must be 10 MB or smaller' }, { status: 400 });
   }
 
-  if (!context.env.GITHUB_TOKEN || !context.env.GITHUB_REPO) {
+  if (!env.GITHUB_TOKEN || !env.GITHUB_REPO) {
     return Response.json({ ok: false, error: 'Server not configured for uploads' }, { status: 500 });
   }
 
-  // ── Field extraction ──────────────────────────────────────────────────────
   const caption  = (formData.get('caption')  as string | null)?.trim() || undefined;
   const place    = (formData.get('place')    as string | null)?.trim() || undefined;
   const rawCat   = (formData.get('category') as string | null)?.trim().toLowerCase() || 'other';
   const category = VALID_CATEGORIES.includes(rawCat) ? rawCat : 'other';
 
-  // ── Build identifiers ─────────────────────────────────────────────────────
   const id       = crypto.randomUUID();
   const base     = slugify(caption ?? place ?? id.slice(0, 8));
   const slug     = `${base}-${id.slice(0, 6)}`;
@@ -151,24 +142,21 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   const createdAt = new Date().toISOString();
 
   try {
-    // ── 1. Commit the image file ────────────────────────────────────────────
     const imageBase64 = bufferToBase64(imageBuffer);
     await githubPut(
       filePath,
       imageBase64,
       `feat: add photo ${slug}`,
       undefined,
-      context.env
+      env
     );
 
-    // ── 2. Read current photos.json ─────────────────────────────────────────
     const jsonPath = 'src/data/photos.json';
-    const existing = await githubGet(jsonPath, context.env);
+    const existing = await githubGet(jsonPath, env);
     const currentJson: unknown[] = existing?.content
       ? JSON.parse(atob(existing.content.replace(/\n/g, '')))
       : [];
 
-    // ── 3. Prepend new entry ────────────────────────────────────────────────
     const newEntry = { id, slug, imageUrl, imageKey: filePath, caption, place, category, createdAt };
     const updated = [newEntry, ...currentJson];
     const updatedBase64 = btoa(encodeURIComponent(JSON.stringify(updated, null, 2) + '\n').replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode(parseInt(p1, 16))));
@@ -178,7 +166,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       updatedBase64,
       `feat: update photos.json — add ${slug}`,
       existing?.sha,
-      context.env
+      env
     );
 
     return Response.json({ ok: true, photo: newEntry }, { status: 201 });
