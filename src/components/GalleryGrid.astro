@@ -1,6 +1,5 @@
 ---
-import type { PhotoEntry } from '../lib/photos';
-import type { Category } from '../lib/photos';
+import type { PhotoEntry, Category } from '../lib/photos';
 import PhotoCard from './PhotoCard.astro';
 import { CATEGORIES } from '../lib/categories';
 
@@ -15,11 +14,7 @@ const { photos, initialCategory = 'all' } = Astro.props;
 <section class="gallery-section" aria-label="Photo gallery">
   <!-- Filter bar -->
   <div class="filter-bar" role="group" aria-label="Filter by category">
-    <button
-      class="filter-btn"
-      data-filter="all"
-      aria-pressed={initialCategory === 'all' ? 'true' : 'false'}
-    >
+    <button class="filter-btn" data-filter="all" aria-pressed={initialCategory === 'all' ? 'true' : 'false'}>
       All
     </button>
     {CATEGORIES.map(cat => (
@@ -36,56 +31,63 @@ const { photos, initialCategory = 'all' } = Astro.props;
   <!-- Grid -->
   <div class="gallery-grid" id="gallery-grid">
     {photos.map(photo => (
-      <PhotoCard photo={photo} />
+      <div class="card-wrap">
+        <PhotoCard photo={photo} />
+      </div>
     ))}
   </div>
 
   <!-- Empty state -->
-  <p class="empty-state" id="gallery-empty" aria-live="polite">
+  <p class="empty-state" id="gallery-empty" aria-live="polite" hidden>
     No photos in this category yet. Check back soon.
   </p>
 </section>
 
 <script>
-  const grid = document.getElementById('gallery-grid') as HTMLElement;
-  const empty = document.getElementById('gallery-empty') as HTMLElement;
+  const grid    = document.getElementById('gallery-grid') as HTMLElement;
+  const empty   = document.getElementById('gallery-empty') as HTMLElement;
   const buttons = document.querySelectorAll<HTMLButtonElement>('.filter-btn');
-  const cards = grid ? Array.from(grid.querySelectorAll<HTMLElement>('[data-category]')) : [];
 
-  // Read initial filter from URL param
+  // Use the wrapper divs so we animate the container, not the link element
+  const wraps = grid ? Array.from(grid.querySelectorAll<HTMLElement>('.card-wrap')) : [];
+
   const params = new URLSearchParams(window.location.search);
   let active = params.get('category') ?? 'all';
+  let pending: number | null = null;
 
   function applyFilter(filter: string) {
     active = filter;
 
-    // Update button states
     buttons.forEach(btn => {
       btn.setAttribute('aria-pressed', btn.dataset.filter === filter ? 'true' : 'false');
     });
 
-    // Show/hide cards
-    let visible = 0;
-    cards.forEach(card => {
-      const match = filter === 'all' || card.dataset.category === filter;
-      card.hidden = !match;
-      if (match) visible++;
+    if (pending !== null) cancelAnimationFrame(pending);
+
+    pending = requestAnimationFrame(() => {
+      let visible = 0;
+      wraps.forEach(wrap => {
+        const card = wrap.querySelector<HTMLElement>('[data-category]');
+        const match = filter === 'all' || card?.dataset.category === filter;
+        if (match) {
+          wrap.classList.remove('card-hidden');
+          visible++;
+        } else {
+          wrap.classList.add('card-hidden');
+        }
+      });
+      empty.hidden = visible > 0;
+      pending = null;
     });
 
-    // Empty state
-    if (empty) empty.hidden = visible > 0;
-
-    // Update URL without reload
     const url = new URL(window.location.href);
     if (filter === 'all') url.searchParams.delete('category');
     else url.searchParams.set('category', filter);
     window.history.replaceState({}, '', url.toString());
   }
 
-  // Init
   applyFilter(active);
 
-  // Button clicks
   buttons.forEach(btn => {
     btn.addEventListener('click', () => applyFilter(btn.dataset.filter ?? 'all'));
   });
@@ -98,6 +100,7 @@ const { photos, initialCategory = 'all' } = Astro.props;
   margin: 0 auto;
 }
 
+/* ── Filter bar ── */
 .filter-bar {
   display: flex;
   gap: 0.5rem;
@@ -116,7 +119,10 @@ const { photos, initialCategory = 'all' } = Astro.props;
   background: transparent;
   color: rgba(245,240,232,0.55);
   cursor: pointer;
-  transition: all 0.18s;
+  transition:
+    border-color 0.18s ease,
+    color 0.18s ease,
+    background 0.18s ease;
 }
 
 .filter-btn:hover,
@@ -126,17 +132,31 @@ const { photos, initialCategory = 'all' } = Astro.props;
   background: rgba(200,90,42,0.1);
 }
 
+/* ── Grid ── */
 .gallery-grid {
   columns: 3;
   column-gap: 1rem;
-  gap: 1rem;
 }
 
-.gallery-grid > :global(*) {
+.card-wrap {
   break-inside: avoid;
   margin-bottom: 1rem;
+  /* Smooth show/hide with opacity + scale instead of display:none reflow */
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s var(--ease-out-expo, cubic-bezier(0.16,1,0.3,1));
+  will-change: opacity, transform;
 }
 
+.card-wrap.card-hidden {
+  opacity: 0;
+  transform: scale(0.97);
+  pointer-events: none;
+  position: absolute;
+  visibility: hidden;
+}
+
+/* ── Empty state ── */
 .empty-state {
   text-align: center;
   padding: 4rem 0;
@@ -144,8 +164,6 @@ const { photos, initialCategory = 'all' } = Astro.props;
   font-size: 0.9rem;
   letter-spacing: 0.05em;
 }
-
-.empty-state[hidden] { display: none; }
 
 @media (max-width: 900px) {
   .gallery-grid { columns: 2; }

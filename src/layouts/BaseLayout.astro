@@ -26,12 +26,24 @@ const {
     <meta property="og:image" content={image} />
     <title>{title}</title>
 
-    <!-- Fonts -->
+    <!-- View transitions (Astro MPA) -->
+    <meta name="view-transition" content="same-origin" />
+
+    <!-- Font preconnect -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- Fonts — display=swap avoids FOIT, async decoding via JS is unnecessary here -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Inter:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,400&family=Inter:wght@400;500;600&display=swap"
       rel="stylesheet"
+    />
+
+    <!-- Preload hero font subset for LCP -->
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@700&display=swap"
     />
   </head>
   <body class="grain min-h-screen" style="background-color: var(--ink);">
@@ -45,6 +57,29 @@ const {
         &copy; {new Date().getFullYear()} WildFrame &mdash; Every frame, a world.
       </p>
     </footer>
+
+    <!-- Scroll reveal — IntersectionObserver, runs once per element -->
+    <script>
+      function initReveal() {
+        const io = new IntersectionObserver(
+          (entries) => {
+            entries.forEach(entry => {
+              if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+                io.unobserve(entry.target);
+              }
+            });
+          },
+          { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
+        );
+
+        document.querySelectorAll('.reveal, .reveal-group').forEach(el => io.observe(el));
+      }
+
+      // Run on initial load and after view transitions
+      initReveal();
+      document.addEventListener('astro:after-swap', initReveal);
+    </script>
   </body>
 </html>
 

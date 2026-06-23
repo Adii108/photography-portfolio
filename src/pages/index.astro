@@ -17,12 +17,12 @@ const featured = allPhotos.slice(0, 3);
   <Hero />
 
   <!-- Featured strip -->
-  <section class="section featured">
-    <div class="section__header">
+  <section class="section featured cv-auto">
+    <div class="section__header reveal">
       <p class="eyebrow">Selected Frames</p>
       <h2 class="display section__title">Recent Work</h2>
     </div>
-    <div class="featured__grid">
+    <div class="featured__grid reveal-group">
       {featured.map((photo, i) => (
         <a href={`/story/${photo.slug}`} class:list={['feat-card', { 'feat-card--tall': i === 0 }]}>
           <img
@@ -45,8 +45,8 @@ const featured = allPhotos.slice(0, 3);
   </section>
 
   <!-- Trek journal intro -->
-  <section class="section journal">
-    <div class="journal__text">
+  <section class="section journal cv-auto">
+    <div class="journal__text reveal">
       <p class="eyebrow">The Journal</p>
       <h2 class="display journal__title">Every trek<br/>leaves a mark</h2>
       <p class="journal__body">
@@ -56,7 +56,7 @@ const featured = allPhotos.slice(0, 3);
       </p>
       <a href="/about" class="link-arrow">About this project →</a>
     </div>
-    <div class="journal__image" aria-hidden="true">
+    <div class="journal__image reveal" aria-hidden="true">
       <img
         src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&auto=format&fit=crop"
         alt=""
@@ -68,10 +68,10 @@ const featured = allPhotos.slice(0, 3);
   </section>
 
   <!-- Category gateway -->
-  <section class="section categories">
-    <p class="eyebrow">Browse by world</p>
-    <h2 class="display categories__title">Choose your terrain</h2>
-    <div class="categories__grid">
+  <section class="section categories cv-auto">
+    <p class="eyebrow reveal">Browse by world</p>
+    <h2 class="display categories__title reveal">Choose your terrain</h2>
+    <div class="categories__grid reveal-group">
       {CATEGORIES.map(cat => (
         <a href={`/gallery?category=${cat.value}`} class="cat-card">
           <span class="cat-card__emoji" aria-hidden="true">{cat.emoji}</span>
@@ -153,11 +153,12 @@ const featured = allPhotos.slice(0, 3);
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.5s ease;
+  will-change: transform;
+  transition: transform 0.55s var(--ease-out-expo, cubic-bezier(0.16,1,0.3,1));
 }
 
 .feat-card:hover .feat-card__img {
-  transform: scale(1.04);
+  transform: scale(1.05);
 }
 
 .feat-card__overlay {
