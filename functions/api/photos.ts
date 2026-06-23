@@ -1,56 +1,57 @@
-interface Env {
-  PHOTO_DB: D1Database;
-}
+/**
+ * GET /api/photos
+ *
+ * Reads photo metadata from the static /photos.json asset that Astro
+ * generates from src/data/photos.json at build time.
+ *
+ * Optional query params:
+ *   category  - filter by category
+ *   limit     - max results (default 50)
+ */
 
-interface PhotoRow {
+interface PhotoEntry {
   id: string;
   slug: string;
-  image_key: string;
-  image_url: string;
-  caption: string | null;
-  place: string | null;
-  category: string | null;
-  created_at: string;
+  imageUrl: string;
+  imageKey: string;
+  caption?: string;
+  place?: string;
+  category?: string;
+  createdAt: string;
 }
 
-export const onRequestGet: PagesFunction<Env> = async (context) => {
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+type EmptyEnv = Record<string, never>;
+
+export const onRequestGet: PagesFunction<EmptyEnv> = async (context) => {
   const url = new URL(context.request.url);
   const category = url.searchParams.get('category') ?? null;
   const limitParam = url.searchParams.get('limit');
   const limit = limitParam ? Math.min(Math.max(parseInt(limitParam, 10) || 50, 1), 200) : 50;
 
   try {
-    let query = 'SELECT * FROM photos';
-    const bindings: (string | number)[] = [];
-
-    if (category && category !== 'all') {
-      query += ' WHERE category = ?';
-      bindings.push(category);
+    // Fetch the static photos.json served from the same Pages deployment
+    const origin = new URL(context.request.url).origin;
+    const res = await fetch(`${origin}/photos.json`);
+    if (!res.ok) {
+      return Response.json({ ok: true, photos: [] }, {
+        headers: { 'Cache-Control': 'public, max-age=30' },
+      });
     }
 
-    query += ' ORDER BY created_at DESC LIMIT ?';
-    bindings.push(limit);
+    let photos: PhotoEntry[] = await res.json() as PhotoEntry[];
 
-    const { results } = await context.env.PHOTO_DB.prepare(query)
-      .bind(...bindings)
-      .all<PhotoRow>();
+    if (category && category !== 'all') {
+      photos = photos.filter(p => p.category === category);
+    }
 
-    const photos = (results ?? []).map(row => ({
-      id: row.id,
-      slug: row.slug,
-      imageUrl: row.image_url,
-      imageKey: row.image_key,
-      caption: row.caption ?? undefined,
-      place: row.place ?? undefined,
-      category: row.category ?? 'other',
-      createdAt: row.created_at,
-    }));
+    photos = photos.slice(0, limit);
 
     return Response.json({ ok: true, photos }, {
-      headers: { 'Cache-Control': 'public, max-age=60' },
+      headers: { 'Cache-Control': 'public, max-age=30' },
     });
   } catch (err) {
     console.error('[GET /api/photos]', err);
-    return Response.json({ ok: false, photos: [], error: 'Failed to load photos' }, { status: 500 });
+    return Response.json({ ok: true, photos: [] }, { status: 200 });
   }
 };

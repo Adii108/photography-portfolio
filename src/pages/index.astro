@@ -3,8 +3,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import Hero from '../components/Hero.astro';
 import { SAMPLE_PHOTOS } from '../lib/samplePhotos';
 import { CATEGORIES } from '../lib/categories';
+import type { PhotoEntry } from '../lib/photos';
+import photosData from '../data/photos.json';
 
-const featured = SAMPLE_PHOTOS.slice(0, 3);
+const livePhotos = photosData as PhotoEntry[];
+const allPhotos = livePhotos.length > 0 ? livePhotos : SAMPLE_PHOTOS;
+const featured = allPhotos.slice(0, 3);
 ---
 
 <BaseLayout title="WildFrame — Nature Travel Photography">

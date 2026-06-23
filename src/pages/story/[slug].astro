@@ -2,14 +2,15 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { SAMPLE_PHOTOS } from '../../lib/samplePhotos';
 import type { PhotoEntry } from '../../lib/photos';
+import photosData from '../../data/photos.json';
 
-// Pre-render all sample photo slugs at build time.
-// Uploaded photos are handled client-side via the <script> below.
 export async function getStaticPaths() {
+  const livePhotos = photosData as PhotoEntry[];
+  const allPhotos = livePhotos.length > 0 ? livePhotos : SAMPLE_PHOTOS;
   return [
-    // One catch-all entry for dynamic slugs not in sample data
+    // Catch-all for slugs added after the last build (resolved client-side)
     { params: { slug: '_' }, props: { photo: null } },
-    ...SAMPLE_PHOTOS.map(photo => ({
+    ...allPhotos.map(photo => ({
       params: { slug: photo.slug },
       props: { photo },
     })),

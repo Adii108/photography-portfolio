@@ -2,9 +2,12 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import GalleryGrid from '../components/GalleryGrid.astro';
 import { SAMPLE_PHOTOS } from '../lib/samplePhotos';
+import type { PhotoEntry } from '../lib/photos';
+import photosData from '../data/photos.json';
 
-// Static build uses sample photos; live data is loaded client-side after hydration.
-const photos = SAMPLE_PHOTOS;
+// Use real photos from the data file if available, otherwise fall back to samples
+const livePhotos = photosData as PhotoEntry[];
+const photos = livePhotos.length > 0 ? livePhotos : SAMPLE_PHOTOS;
 ---
 
 <BaseLayout
